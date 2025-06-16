@@ -1,8 +1,11 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
+
 </script>
 
 <template>
-  <SidebarProvider>
+  <div class="flex flex-col min-h-screen">
+    <Toast />  <SidebarProvider>
     <LayoutAppSidebar />
     <SidebarInset>
       <LayoutHeader />
