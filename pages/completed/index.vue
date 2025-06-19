@@ -15,11 +15,8 @@ const { data: terminatedJobs, pending, error, refresh } = await useAsyncData(
   'terminated-jobs', 
   () => $fetch('/api/jobs/terminated'),
   {
-    // Refresh data every 30 seconds on client side
     server: true,
-    client: true,
-    default: () => null,
-    refreshCookie: 'sid' // Refresh when session cookie changes
+    default: () => null
   }
 )
 
