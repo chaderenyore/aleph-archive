@@ -16,12 +16,12 @@ export const navMenu: NavMenu[] = [
       },
       {
         title: 'New',
-        icon: 'i-lucide-mail',
+        icon: 'i-lucide-archive',
         link: '/new',
       },
       {
         title: 'Completed',
-        icon: 'i-lucide-mail',
+        icon: 'i-lucide-circle-check-big',
         link: '/completed',
       },
       {
