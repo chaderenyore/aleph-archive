@@ -38,303 +38,6 @@ const runningData = jobsData.value?.count.running;
 
 </style> -->
 
-
-<!--
-<script setup lang="ts">
-import { ref } from 'vue'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Calendar, Clock, Globe, Archive, Settings, CircleCheckBig } from 'lucide-vue-next'
-
-const { data: jobsData } = await useAsyncData(
-  'jobs',
-  () => $fetch('/api/jobs/terminated'),
-  {
-    server: true,
-    default: () => null
-  }
-);
-
-console.log('Jobs data:', jobsData.value);
-const pendingData = jobsData.value?.count.pending;
-const terminatedData = jobsData.value?.count.terminated;
-const runningData = jobsData.value?.count.running;
-
-// Form reactive data
-const formData = ref({
-  starting_url: '',
-  archive_name: '',
-  schedule_date: '',
-  schedule_time: '',
-  follow_robots: false,
-  more_options: false
-})
-
-const isSubmitting = ref(false)
-
-// Handle form submission
-const handleSubmit = async () => {
-  try {
-    isSubmitting.value = true
-    
-    // Combine date and time for schedule
-    const scheduleDateTime = formData.value.schedule_date && formData.value.schedule_time 
-      ? `${formData.value.schedule_date}T${formData.value.schedule_time}`
-      : null
-
-    const payload = {
-      starting_url: formData.value.starting_url,
-      archive_name: formData.value.archive_name,
-      scheduled_run: scheduleDateTime,
-      follow_robots: formData.value.follow_robots,
-      more_options: formData.value.more_options
-    }
-
-    // Send to backend
-    const response = await $fetch('/api/archive/create', {
-      method: 'POST',
-      body: payload
-    })
-
-    console.log('Archive created:', response)
-    
-    // Reset form or redirect
-    // await navigateTo('/archives')
-    
-  } catch (error) {
-    console.error('Error creating archive:', error)
-  } finally {
-    isSubmitting.value = false
-  }
-}
-
-// Get current date and time for defaults
-const getCurrentDate = () => {
-  const now = new Date()
-  return now.toISOString().split('T')[0]
-}
-
-const getCurrentTime = () => {
-  const now = new Date()
-  return now.toTimeString().slice(0, 5)
-}
-</script>
-
-<template>
-  <div class="min-h-screen bg-background">
-     Header Section 
-    <section class="bg-sidebar flex items-stretch justify-between absolute right-0 left-0 top-[53px] px-6 py-4 border-b">
-      <div class="page-title">
-        <h1 class="text-2xl font-semibold text-sidebar-foreground">New Archive</h1>
-        <p class="text-sm text-sidebar-foreground/70">Create a new web archive job</p>
-      </div>
-      <div class="jobs-data flex gap-6 items-center">
-        <div class="flex items-center gap-3 px-4 py-2 bg-sidebar-accent rounded-lg">
-          <div class="job-icon">
-            <CircleCheckBig class="h-5 w-5 text-sidebar-accent-foreground" />
-          </div>
-          <div class="job-description flex flex-col items-center">
-            <p class="text-lg font-semibold text-sidebar-accent-foreground">{{ terminatedData || 0 }}</p>
-            <p class="text-xs text-sidebar-accent-foreground/70">Terminated</p>
-          </div>
-        </div>
-        <div class="flex items-center gap-3 px-4 py-2 bg-sidebar-accent rounded-lg">
-          <div class="job-icon">
-            <Clock class="h-5 w-5 text-sidebar-accent-foreground" />
-          </div>
-          <div class="job-description flex flex-col items-center">
-            <p class="text-lg font-semibold text-sidebar-accent-foreground">{{ pendingData || 0 }}</p>
-            <p class="text-xs text-sidebar-accent-foreground/70">Pending</p>
-          </div>
-        </div>
-        <div class="flex items-center gap-3 px-4 py-2 bg-sidebar-accent rounded-lg">
-          <div class="job-icon">
-            <Archive class="h-5 w-5 text-sidebar-accent-foreground" />
-          </div>
-          <div class="job-description flex flex-col items-center">
-            <p class="text-lg font-semibold text-sidebar-accent-foreground">{{ runningData || 0 }}</p>
-            <p class="text-xs text-sidebar-accent-foreground/70">Running</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Form Section 
-    <section class="pt-32 pb-8 px-6">
-      <div class="max-w-2xl mx-auto">
-        <Card>
-          <CardHeader>
-            <CardTitle class="flex items-center gap-2">
-              <Globe class="h-5 w-5" />
-              Archive Configuration
-            </CardTitle>
-            <CardDescription>
-              Configure your web archive job with the settings below
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form @submit.prevent="handleSubmit" class="space-y-6">
-              <!-- Starting URL 
-              <div class="space-y-2">
-                <Label for="starting_url" class="text-sm font-medium">
-                  Starting URL *
-                </Label>
-                <Input
-                  id="starting_url"
-                  v-model="formData.starting_url"
-                  type="url"
-                  placeholder="https://example.com"
-                  required
-                  class="w-full"
-                />
-                <p class="text-xs text-muted-foreground">
-                  Enter the URL where the archive should start crawling
-                </p>
-              </div>
-
-              <!-- Archive Name 
-              <div class="space-y-2">
-                <Label for="archive_name" class="text-sm font-medium">
-                  Archive Name *
-                </Label>
-                <Input
-                  id="archive_name"
-                  v-model="formData.archive_name"
-                  type="text"
-                  placeholder="My Website Archive"
-                  required
-                  class="w-full"
-                />
-                <p class="text-xs text-muted-foreground">
-                  Give your archive a descriptive name
-                </p>
-              </div>
-
-              <!-- Schedule 
-              <div class="space-y-4">
-                <Label class="text-sm font-medium">Schedule to Run</Label>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div class="space-y-2">
-                    <Label for="schedule_date" class="text-xs text-muted-foreground">
-                      Date
-                    </Label>
-                    <Input
-                      id="schedule_date"
-                      v-model="formData.schedule_date"
-                      type="date"
-                      :min="getCurrentDate()"
-                      class="w-full"
-                    />
-                  </div>
-                  <div class="space-y-2">
-                    <Label for="schedule_time" class="text-xs text-muted-foreground">
-                      Time
-                    </Label>
-                    <Input
-                      id="schedule_time"
-                      v-model="formData.schedule_time"
-                      type="time"
-                      class="w-full"
-                    />
-                  </div>
-                </div>
-                <p class="text-xs text-muted-foreground">
-                  Leave empty to start immediately
-                </p>
-              </div>
-
-              <!-- Follow robots.txt 
-              <div class="flex items-center space-x-3">
-                <Checkbox
-                  id="follow_robots"
-                  v-model:checked="formData.follow_robots"
-                />
-                <Label for="follow_robots" class="text-sm font-medium cursor-pointer">
-                  Follow robots.txt
-                </Label>
-              </div>
-              <p class="text-xs text-muted-foreground ml-6">
-                Respect the website's robots.txt file during crawling
-              </p>
-
-              <!-- More Options 
-              <div class="space-y-4">
-                <div class="flex items-center space-x-3">
-                  <Checkbox
-                    id="more_options"
-                    v-model:checked="formData.more_options"
-                  />
-                  <Label for="more_options" class="text-sm font-medium cursor-pointer flex items-center gap-2">
-                    <Settings class="h-4 w-4" />
-                    More Options
-                  </Label>
-                </div>
-
-                <!-- Additional Options (shown when more_options is checked) 
-                <Transition
-                  enter-active-class="transition-all duration-300 ease-out"
-                  enter-from-class="opacity-0 max-h-0"
-                  enter-to-class="opacity-100 max-h-96"
-                  leave-active-class="transition-all duration-300 ease-in"
-                  leave-from-class="opacity-100 max-h-96"
-                  leave-to-class="opacity-0 max-h-0"
-                >
-                  <div v-if="formData.more_options" class="ml-6 space-y-4 p-4 border rounded-lg bg-muted/50">
-                    <p class="text-sm text-muted-foreground">
-                      Additional configuration options will be available here.
-                    </p>
-                    <div class="space-y-2">
-                      <Label class="text-sm font-medium">Coming Soon</Label>
-                      <Input
-                        placeholder="Additional options will be added here..."
-                        disabled
-                        class="w-full"
-                      />
-                    </div>
-                  </div>
-                </Transition>
-              </div>
-
-              <!-- Submit Button 
-              <div class="flex justify-end pt-6">
-                <Button
-                  type="submit"
-                  :disabled="isSubmitting || !formData.starting_url || !formData.archive_name"
-                  class="min-w-32"
-                >
-                  <span v-if="isSubmitting" class="flex items-center gap-2">
-                    <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    Creating...
-                  </span>
-                  <span v-else class="flex items-center gap-2">
-                    <Archive class="h-4 w-4" />
-                    Create Archive
-                  </span>
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-    </section>
-  </div>
-</template>
-
-<style scoped>
-.max-h-0 {
-  max-height: 0;
-  overflow: hidden;
-}
-
-.max-h-96 {
-  max-height: 24rem;
-  overflow: hidden;
-}
-</style>
--->
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { Button } from '@/components/ui/button'
@@ -368,7 +71,7 @@ const runningData = jobsData.value?.count.running;
 // Form reactive data
 const formData = ref({
   starting_url: '',
-  archive_name: '',
+  name: '',
   schedule_date: '',
   schedule_time: '',
   follow_robots: false,
@@ -632,10 +335,10 @@ const getCurrentDate = () => {
                     />
                   </div>
                   <div class="space-y-2">
-                    <Label for="archive_name">Archive Name *</Label>
+                    <Label for="name">Archive Name *</Label>
                     <Input
-                      id="archive_name"
-                      v-model="formData.archive_name"
+                      id="name"
+                      v-model="formData.name"
                       type="text"
                       placeholder="My Website Archive"
                       required
@@ -1230,7 +933,7 @@ const getCurrentDate = () => {
                 <div class="flex justify-end pt-6">
                   <Button
                     type="submit"
-                    :disabled="isSubmitting || !formData.starting_url || !formData.archive_name"
+                    :disabled="isSubmitting || !formData.starting_url || !formData.name"
                     class="min-w-32"
                   >
                     <span v-if="isSubmitting" class="flex items-center gap-2">
