@@ -1,45 +1,8 @@
-<!-- <script setup lang="ts">
-const { data: jobsData } = await useAsyncData(
-  'jobs',
-  () => $fetch('/api/jobs/terminated'),
-  {
-    server: true,
-    default: () => null
-  }
-);
-console.log('Jobs data:', jobsData.value);
-const pendingData = jobsData.value?.count.pending;
-const terminatedData = jobsData.value?.count.terminated;
-const runningData = jobsData.value?.count.running;
-
-</script>
-
-<template>
-    <section class="bg-sidebar flex items-stretch justify-between  absolute right-0 left-0 top-[53px]">
-      <div class="page-title">
-        <p>New Page</p>
-      </div>
-      <div class="jobs-data flex gap-2 items-center gap-4">
-        <div class="job-icon">Icon</div>
-        <div class="job-description flex flex-col items-center">
-          <p>{{ pendingData }}</p>
-          <p>Pending</p>
-        </div>
-      </div>
-    </section>
-
-    <section>
-
-
-    </section>
-</template>
-
-<style scoped>
-
-</style> -->
-
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useAuth } from '@/composables/useAuth'
+import { useAsyncData } from '#app'
+import { navigateTo } from '#app'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -54,7 +17,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Calendar, Clock, Globe, Archive, Settings, Info, Plus, MoreHorizontal, Edit, Trash2, X, CircleCheckBig } from 'lucide-vue-next';
+import { toast } from 'vue-sonner'
 
+const { user, fetchUser } = useAuth()
 const { data: jobsData } = await useAsyncData(
   'jobs',
   () => $fetch('/api/jobs/terminated'),
@@ -72,6 +37,7 @@ const runningData = jobsData.value?.count.running;
 const formData = ref({
   starting_url: '',
   name: '',
+  agent: user.value.name,
   schedule_date: '',
   schedule_time: '',
   follow_robots: false,
@@ -186,30 +152,128 @@ const clearHotLinks = () => {
   moreOptionsData.value.hot_links = ''
 }
 
-// Handle form submission
+// Replace the entire handleSubmit function with this corrected version:
 const handleSubmit = async () => {
   try {
     isSubmitting.value = true
     
-    const scheduleDateTime = formData.value.schedule_date && formData.value.schedule_time 
-      ? `${formData.value.schedule_date}T${formData.value.schedule_time}`
-      : null
-
+    // Prepare payload with only required backend fields
     const payload = {
-      ...formData.value,
-      scheduled_run: scheduleDateTime,
-      more_options_data: formData.value.more_options ? moreOptionsData.value : null
+      agent: user.value.name,
+      name: formData.value.name,
+        starting_url: formData.value.starting_url
+            .split(',')
+            .map(url => url.trim()) // Remove whitespace
+            .filter(url => url.length > 0) // Remove empty strings
     }
 
-    const response = await $fetch('/api/archive/create', {
+    console.log('Creating archive with payload:', payload)
+
+    const response = await $fetch('/api/jobs/create', {
       method: 'POST',
       body: payload
     })
 
-    console.log('Archive created:', response)
+    console.log('Archive created successfully:', response)
+    
+    // Show success message using vue-sonner
+    toast.success('Archive created successfully!')
+    
+    // Reset form after successful submission
+    formData.value = {
+      starting_url: '',
+      name: '',
+      agent: user.value.name,
+      schedule_date: '',
+      schedule_time: '',
+      follow_robots: false,
+      more_options: false
+    }
+    
+    // Reset more options data
+    moreOptionsData.value = {
+      rules: [],
+      max_urls: 12,
+      max_time: 21,
+      depth: 21,
+      automatic_warc_export: true,
+      proxy: false,
+      compress: false,
+      stop_after: 10,
+      agent: 'Aleph',
+      user_agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
+      max_workers: '',
+      page_load: '',
+      queue_weight: '',
+      update_existing_resources: true,
+      follow_redirects: false,
+      png_snapshots: false,
+      pdf_snapshots: false,
+      ignore_ssl_errors: true,
+      enable_scroll: false,
+      view_height: 400,
+      resources_pause_time: 100,
+      velocity: 0,
+      video_transcode: false,
+      compatible_codec_brand: false,
+      hot_links: '',
+      sanitizer_rules: '',
+      harmonizer_scripts: '',
+      link_discoverer: '',
+      cookies_filters: '',
+      cookies_seeds: '',
+      custom_viewport: false,
+      custom_viewport_value: '',
+      viewport_mobile: false,
+      viewport_phablet: false,
+      viewport_tablet: false,
+      viewport_desktop: false,
+      viewport_height: ''
+    }
+    
+    // Redirect to completed page
+    await navigateTo('/completed')
     
   } catch (error) {
     console.error('Error creating archive:', error)
+    
+    // Handle different types of errors with user-friendly messages using vue-sonner
+    if (error.statusCode) {
+      switch (error.statusCode) {
+        case 400:
+          toast.error('Invalid archive data. Please check your input and try again.')
+          break
+        case 401:
+          toast.error('Session expired. Please log in again.')
+          // Optionally redirect to login
+          await navigateTo('/login')
+          break
+        case 403:
+          toast.error('You don\'t have permission to create archives.')
+          break
+        case 409:
+          toast.error('An archive with similar parameters already exists.')
+          break
+        case 422:
+          toast.error('Archive data validation failed. Please check your input.')
+          break
+        case 429:
+          toast.error('Too many requests. Please wait before creating another archive.')
+          break
+        case 500:
+          toast.error('Server error occurred. Please try again later.')
+          break
+        case 503:
+          toast.error('Archive service is temporarily unavailable. Please try again later.')
+          break
+        default:
+          toast.error(error.statusMessage || 'Failed to create archive. Please try again.')
+      }
+    } else if (error.message) {
+      toast.error(error.message)
+    } else {
+      toast.error('An unexpected error occurred. Please try again.')
+    }
   } finally {
     isSubmitting.value = false
   }
@@ -325,7 +389,7 @@ const getCurrentDate = () => {
                 <!-- Basic Fields -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div class="space-y-2">
-                    <Label for="starting_url">Starting URL *</Label>
+                    <Label for="starting_url">Starting URL(s) comma separated *</Label>
                     <Input
                       id="starting_url"
                       v-model="formData.starting_url"
