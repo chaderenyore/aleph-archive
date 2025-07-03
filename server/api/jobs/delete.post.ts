@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
     // Get and validate session cookie
     const sidCookie = getCookie(event, "sid")
     if (!sidCookie) {
-      console.warn("Terminated jobs request attempted without valid session")
+      console.warn("Job deletion attempted without valid session")
       throw createError({
         statusCode: 401,
         statusMessage: "Authentication required. Please log in to continue.",
@@ -41,27 +41,39 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // Set default values if not provided
-    const payload = {
-      from: requestBody?.from || 0,
-      size: requestBody?.size || 5,
-      ...requestBody,
+    // Validate required fields
+    if (!requestBody || !requestBody.state || !requestBody.uuids || !Array.isArray(requestBody.uuids)) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: "State and UUIDs array are required for job deletion.",
+      })
     }
 
-    console.log("Fetching terminated jobs with payload:", JSON.stringify(payload, null, 2))
+    if (requestBody.uuids.length === 0) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: "At least one job UUID must be provided for deletion.",
+      })
+    }
 
-    // Make API request to get terminated jobs
-    const terminatedJobs = await $fetch(`${baseUrl}/terminated`, {
+    console.log("Deleting jobs:", {
+      state: requestBody.state,
+      count: requestBody.uuids.length,
+      uuids: requestBody.uuids
+    })
+
+    // Make API request for job deletion
+    const deleteResult = await $fetch(`${baseUrl}/remove_job`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Cookie: `sid=${sidCookie}`,
       },
-      timeout: 15000,
+      timeout: 30000, // Extended timeout for delete operations
       ignoreHTTPSErrors: true,
-      body: payload,
+      body: requestBody,
     }).catch((fetchError) => {
-      console.error("Terminated jobs API request failed:", fetchError)
+      console.error("Delete API request failed:", fetchError)
 
       // Handle different types of fetch errors
       if (fetchError.response) {
@@ -72,7 +84,7 @@ export default defineEventHandler(async (event) => {
           case 400:
             throw createError({
               statusCode: 400,
-              statusMessage: "Invalid request parameters. Please check your filters and try again.",
+              statusMessage: "Invalid delete request. Please check the job UUIDs and state.",
             })
           case 401:
             throw createError({
@@ -82,86 +94,75 @@ export default defineEventHandler(async (event) => {
           case 403:
             throw createError({
               statusCode: 403,
-              statusMessage: "You don't have permission to view terminated jobs.",
+              statusMessage: "You don't have permission to delete jobs.",
             })
           case 404:
             throw createError({
               statusCode: 404,
-              statusMessage: "Terminated jobs endpoint not found. Please contact support.",
+              statusMessage: "One or more jobs not found or delete endpoint unavailable.",
+            })
+          case 409:
+            throw createError({
+              statusCode: 409,
+              statusMessage: "Some jobs cannot be deleted in their current state.",
             })
           case 422:
             throw createError({
               statusCode: 422,
-              statusMessage: "Request validation failed. Please check your parameters.",
-            })
-          case 429:
-            throw createError({
-              statusCode: 429,
-              statusMessage: "Too many requests. Please wait before trying again.",
+              statusMessage: "Job deletion validation failed. Please check your selection.",
             })
           case 500:
             throw createError({
               statusCode: 500,
-              statusMessage: "Server error occurred while fetching jobs. Please try again later.",
+              statusMessage: "Server error occurred during deletion. Please try again later.",
             })
           case 503:
             throw createError({
               statusCode: 503,
-              statusMessage: "Service temporarily unavailable. Please try again later.",
+              statusMessage: "Delete service is temporarily unavailable. Please try again later.",
             })
           default:
             throw createError({
               statusCode: status,
-              statusMessage: `Failed to fetch terminated jobs: ${statusText}`,
+              statusMessage: `Job deletion failed: ${statusText}`,
             })
         }
       } else if (fetchError.code === "TIMEOUT") {
         throw createError({
           statusCode: 408,
-          statusMessage: "Request timed out. Please try again.",
+          statusMessage: "Delete request timed out. Some jobs may have been deleted.",
         })
       } else if (fetchError.code === "NETWORK_ERROR" || fetchError.code === "ECONNREFUSED") {
         throw createError({
           statusCode: 503,
-          statusMessage: "Unable to connect to the service. Please check your connection and try again.",
+          statusMessage: "Unable to connect to delete service. Please try again later.",
         })
       } else {
         throw createError({
           statusCode: 500,
-          statusMessage: "An unexpected error occurred while fetching terminated jobs.",
+          statusMessage: "An unexpected error occurred during deletion.",
         })
       }
     })
 
     // Validate response
-    if (!terminatedJobs) {
-      console.error("API returned empty response")
+    if (!deleteResult) {
+      console.error("Delete API returned empty response")
       throw createError({
         statusCode: 500,
-        statusMessage: "No data received from the server.",
+        statusMessage: "Deletion completed but no confirmation was returned.",
       })
     }
 
-    // Validate response structure
-    if (!terminatedJobs.hasOwnProperty("success")) {
-      console.warn("API response missing success field")
-    }
-
-    if (!terminatedJobs.data || !Array.isArray(terminatedJobs.data)) {
-      console.warn("API response missing or invalid data array")
-      terminatedJobs.data = []
-    }
-
-    if (!terminatedJobs.count) {
-      console.warn("API response missing count information")
-      terminatedJobs.count = { terminated: 0, running: 0, pending: 0 }
-    }
-
-    console.log(`Successfully fetched ${terminatedJobs.data.length} terminated jobs`)
-    return terminatedJobs
+    console.log("Jobs deleted successfully:", {
+      count: requestBody.uuids.length,
+      result: deleteResult
+    })
+    
+    return deleteResult
   } catch (err: any) {
     // Log the full error for debugging
-    console.error("Error in terminated jobs handler:", {
+    console.error("Error in job deletion handler:", {
       message: err.message,
       statusCode: err.statusCode,
       statusMessage: err.statusMessage,
@@ -177,7 +178,7 @@ export default defineEventHandler(async (event) => {
     // Handle unexpected errors
     throw createError({
       statusCode: 500,
-      statusMessage: "An unexpected error occurred. Please try again later.",
+      statusMessage: "An unexpected error occurred during deletion. Please try again later.",
     })
   }
 })

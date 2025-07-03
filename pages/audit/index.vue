@@ -310,7 +310,7 @@ import { Input } from '@/components/ui/input'
 
 // Declare useAsyncData and $fetch
 const { data: terminatedJobs, pending, error, refresh } = await useAsyncData(
-  'terminated-jobs',
+  'audit-jobs',
   () => $fetch('/api/jobs/audit', {
     method: 'POST',
     body: buildPayload()
