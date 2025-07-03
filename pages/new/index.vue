@@ -23,7 +23,9 @@ import { toast } from 'vue-sonner'
 const { user, fetchUser } = useAuth()
 const { data: jobsData } = await useAsyncData(
   'jobs',
-  () => $fetch('/api/jobs/terminated'),
+  () => $fetch('/api/jobs/terminated', {
+     method: 'POST',
+  }),
   {
     server: true,
     default: () => null,
