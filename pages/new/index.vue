@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const nuxtApp = useNuxtApp();
 import { ref, computed } from 'vue'
 import { useAuth } from '@/composables/useAuth'
 import { useAsyncData } from '#app'
@@ -25,7 +26,10 @@ const { data: jobsData } = await useAsyncData(
   () => $fetch('/api/jobs/terminated'),
   {
     server: true,
-    default: () => null
+    default: () => null,
+    getCachedData(key) {
+      return nuxtApp.payload.data[key] || nuxtApp.static.data[key]
+    }
   }
 );
 

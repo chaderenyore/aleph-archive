@@ -277,7 +277,8 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, reactive, computed, watch, watchEffect, nextTick } from 'vue'
+const nuxtApp = useNuxtApp();
+import { ref, reactive, computed, watch, watchEffect, nextTick, onBeforeMount } from 'vue'
 import { format } from 'date-fns'
 import {
   RefreshCw,
@@ -317,9 +318,16 @@ const { data: terminatedJobs, pending, error, refresh } = await useAsyncData(
   }),
   {
     server: true,
-    default: () => null
+    default: () => null,
+    getCachedData(key) {
+      return nuxtApp.payload.data[key] || nuxtApp.static.data[key]
+    }
   }
 )
+
+// onBeforeMount(() => {
+//   refresh();
+// });
 
 // Reactive state for filters
 const showFilters = ref(false)

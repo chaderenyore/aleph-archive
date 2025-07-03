@@ -607,7 +607,8 @@ const processedJobs = computed(() => {
 </template>
 
 <script lang="ts" setup>
-import { ref, reactive, computed, watch, watchEffect, nextTick } from 'vue'
+const nuxtApp = useNuxtApp();
+import { ref, reactive, computed, watch, watchEffect, nextTick, onBeforeMount } from 'vue'
 import { format } from 'date-fns'
 import { toast } from 'vue-sonner'
 import {
@@ -664,9 +665,17 @@ const { data: terminatedJobs, pending, error, refresh } = await useAsyncData(
     body: buildPayload()
   }),
   {
-    server: false
+    server: false,
+    default: () => null,
+    getCachedData(key) {
+      return nuxtApp.payload.data[key] || nuxtApp.static.data[key]
+    }
   }
 )
+
+// onBeforeMount(() => {
+//   refresh();
+// });
 
 
 // Add this function in the utility functions section
