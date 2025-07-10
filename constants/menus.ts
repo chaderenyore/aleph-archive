@@ -20,6 +20,11 @@ export const navMenu: NavMenu[] = [
         link: '/new',
       },
       {
+        title: 'Pending',
+        icon: 'i-lucide-trending-up',
+        link: '/pending',
+      },
+      {
         title: 'Completed',
         icon: 'i-lucide-circle-check-big',
         link: '/completed',
