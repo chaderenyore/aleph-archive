@@ -978,14 +978,15 @@ const confirmRunJob = async () => {
   
   try {
     isRunning.value = true
-    await $fetch('/api/run_job', {
+    await $fetch('/api/jobs/run_job', {
       method: 'POST',
-      body: { uuid: selectedJobForAction.value.uuid }
+      body: { uuids: [selectedJobForAction.value.uuid] }
     })
     toast.success('Job started successfully!')
     runModalOpen.value = false
     selectedJobForAction.value = null
     refresh()
+    navigateTo('/running');
   } catch (error: any) {
     toast.error(error.statusMessage || 'Failed to run job')
   } finally {
