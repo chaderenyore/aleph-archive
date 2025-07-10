@@ -1,118 +1,384 @@
+<script setup lang="ts">
+const nuxtApp = useNuxtApp();
+import { ref, computed } from 'vue'
+import { useAuth } from '@/composables/useAuth'
+import { useAsyncData } from '#app'
+import { navigateTo } from '#app'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { Calendar, Clock, Globe, Archive, Settings, Info, Plus, MoreHorizontal, Edit, Trash2, X, CircleCheckBig } from 'lucide-vue-next';
+import { toast } from 'vue-sonner'
+
+const { user, fetchUser } = useAuth()
+const { data: jobsData } = await useAsyncData(
+  'jobs',
+  () => $fetch('/api/jobs/terminated', {
+    method: "POST"
+  }),
+  {
+    server: true,
+    default: () => null,
+    getCachedData(key) {
+      return nuxtApp.payload.data[key] || nuxtApp.static.data[key]
+    }
+  }
+);
+
+const pendingData = jobsData.value?.count.pending;
+const terminatedData = jobsData.value?.count.terminated;
+const runningData = jobsData.value?.count.running;
+
+// Form reactive data
+const formData = ref({
+  starting_url: '',
+  name: '',
+  agent: user.value.name,
+  schedule_date: '',
+  schedule_time: '',
+  follow_robots: false,
+  more_options: false
+})
+
+// More options data
+const moreOptionsData = ref({
+  // Fine grained scoping
+  rules: [],
+  
+  // Ending conditions
+  max_urls: 12,
+  max_time: 21,
+  depth: 21,
+  
+  // Actions
+  automatic_warc_export: true,
+  proxy: false,
+  compress: false,
+  stop_after: 10,
+  agent: 'Aleph',
+  
+  // Behaviour
+  user_agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
+  max_workers: '',
+  page_load: '',
+  queue_weight: '',
+  update_existing_resources: true,
+  follow_redirects: false,
+  png_snapshots: false,
+  pdf_snapshots: false,
+  ignore_ssl_errors: true,
+  
+  // Behaviour per page
+  enable_scroll: false,
+  view_height: 400,
+  resources_pause_time: 100,
+  velocity: 0,
+  
+  // Audio/Video
+  video_transcode: false,
+  compatible_codec_brand: false,
+  
+  // Hot links
+  hot_links: '',
+  
+  // Advanced options
+  sanitizer_rules: '',
+  harmonizer_scripts: '',
+  link_discoverer: '',
+  cookies_filters: '',
+  cookies_seeds: '',
+  custom_viewport: false,
+  custom_viewport_value: '',
+  viewport_mobile: false,
+  viewport_phablet: false,
+  viewport_tablet: false,
+  viewport_desktop: false,
+  viewport_height: ''
+})
+
+const isSubmitting = ref(false)
+
+// Modal states
+const showRuleModal = ref(false)
+const showInfoModal = ref(false)
+const editingRuleIndex = ref(-1)
+
+// Rule form data
+const ruleForm = ref({
+  url: '',
+  type: 'primary',
+  scope: 'Domain'
+})
+
+// Add or edit rule
+const saveRule = () => {
+  if (editingRuleIndex.value >= 0) {
+    moreOptionsData.value.rules[editingRuleIndex.value] = { ...ruleForm.value, id: Date.now() }
+  } else {
+    moreOptionsData.value.rules.push({ ...ruleForm.value, id: Date.now() })
+  }
+  resetRuleForm()
+  showRuleModal.value = false
+}
+
+const editRule = (index) => {
+  editingRuleIndex.value = index
+  ruleForm.value = { ...moreOptionsData.value.rules[index] }
+  showRuleModal.value = true
+}
+
+const deleteRule = (index) => {
+  moreOptionsData.value.rules.splice(index, 1)
+}
+
+const clearAllRules = () => {
+  moreOptionsData.value.rules = []
+}
+
+const resetRuleForm = () => {
+  ruleForm.value = {
+    url: '',
+    type: 'primary',
+    scope: 'Domain'
+  }
+  editingRuleIndex.value = -1
+}
+
+const clearHotLinks = () => {
+  moreOptionsData.value.hot_links = ''
+}
+
+// Replace the entire handleSubmit function with this corrected version:
+const handleSubmit = async () => {
+  try {
+    isSubmitting.value = true
+    
+    // Prepare payload with only required backend fields
+    const payload = {
+      agent: user.value.name,
+      name: formData.value.name,
+        starting_url: formData.value.starting_url
+            .split(',')
+            .map(url => url.trim()) // Remove whitespace
+            .filter(url => url.length > 0) // Remove empty strings
+    }
+
+    console.log('Creating archive with payload:', payload)
+
+    const response = await $fetch('/api/jobs/create', {
+      method: 'POST',
+      body: payload
+    })
+
+    console.log('Archive created successfully:', response)
+    
+    // Show success message using vue-sonner
+    toast.success('Archive created successfully!')
+    
+    // Reset form after successful submission
+    formData.value = {
+      starting_url: '',
+      name: '',
+      agent: user.value.name,
+      schedule_date: '',
+      schedule_time: '',
+      follow_robots: false,
+      more_options: false
+    }
+    
+    // Reset more options data
+    moreOptionsData.value = {
+      rules: [],
+      max_urls: 12,
+      max_time: 21,
+      depth: 21,
+      automatic_warc_export: true,
+      proxy: false,
+      compress: false,
+      stop_after: 10,
+      agent: 'Aleph',
+      user_agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
+      max_workers: '',
+      page_load: '',
+      queue_weight: '',
+      update_existing_resources: true,
+      follow_redirects: false,
+      png_snapshots: false,
+      pdf_snapshots: false,
+      ignore_ssl_errors: true,
+      enable_scroll: false,
+      view_height: 400,
+      resources_pause_time: 100,
+      velocity: 0,
+      video_transcode: false,
+      compatible_codec_brand: false,
+      hot_links: '',
+      sanitizer_rules: '',
+      harmonizer_scripts: '',
+      link_discoverer: '',
+      cookies_filters: '',
+      cookies_seeds: '',
+      custom_viewport: false,
+      custom_viewport_value: '',
+      viewport_mobile: false,
+      viewport_phablet: false,
+      viewport_tablet: false,
+      viewport_desktop: false,
+      viewport_height: ''
+    }
+    
+    // Redirect to completed page
+    await navigateTo('/completed')
+    
+  } catch (error) {
+    console.error('Error creating archive:', error)
+    
+    // Handle different types of errors with user-friendly messages using vue-sonner
+    if (error.statusCode) {
+      switch (error.statusCode) {
+        case 400:
+          toast.error('Invalid archive data. Please check your input and try again.')
+          break
+        case 401:
+          toast.error('Session expired. Please log in again.')
+          // Optionally redirect to login
+          await navigateTo('/login')
+          break
+        case 403:
+          toast.error('You don\'t have permission to create archives.')
+          break
+        case 409:
+          toast.error('An archive with similar parameters already exists.')
+          break
+        case 422:
+          toast.error('Archive data validation failed. Please check your input.')
+          break
+        case 429:
+          toast.error('Too many requests. Please wait before creating another archive.')
+          break
+        case 500:
+          toast.error('Server error occurred. Please try again later.')
+          break
+        case 503:
+          toast.error('Archive service is temporarily unavailable. Please try again later.')
+          break
+        default:
+          toast.error(error.statusMessage || 'Failed to create archive. Please try again.')
+      }
+    } else if (error.message) {
+      toast.error(error.message)
+    } else {
+      toast.error('An unexpected error occurred. Please try again.')
+    }
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+const getCurrentDate = () => {
+  const now = new Date()
+  return now.toISOString().split('T')[0]
+}
+</script>
+
 <template>
   <TooltipProvider>
     <div class="min-h-screen bg-background">
       <!-- Header Section -->
-      <section class="bg-gradient-to-r from-sidebar to-sidebar/95 backdrop-blur-sm border-b border-border/50 shadow-sm mb-6">
-        <div class="px-4 sm:px-6 lg:px-8 py-4">
-          <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <!-- Page Title Section -->
-            <div class="page-title space-y-1">
-              <div class="flex items-center gap-3">
-                <div class="p-2 bg-primary/10 rounded-lg">
-                  <Globe class="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <h1 class="text-xl sm:text-2xl font-bold text-sidebar-foreground tracking-tight">
-                    {{ isEditMode ? 'Edit Archive' : 'New Archive' }}
-                  </h1>
-                  <p class="text-xs sm:text-sm text-sidebar-foreground/70">
-                    {{ isEditMode ? 'Edit existing web archive job configuration' : 'Create a new web archive job with advanced configuration' }}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <!-- Stats Cards Section -->
-            <div class="jobs-data">
-              <div class="grid grid-cols-3 gap-2 sm:gap-3">
-                <!-- Terminated Jobs -->
-                <div class="group relative overflow-hidden bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/50 dark:to-green-900/30 border border-green-200/50 dark:border-green-800/50 rounded-lg p-2 sm:p-3 transition-all duration-200 hover:shadow-md hover:scale-105">
-                  <div class="flex flex-col items-center text-center space-y-1">
-                    <div class="p-1.5 bg-green-500/10 rounded-md">
-                      <CircleCheckBig class="h-3 w-3 sm:h-4 sm:w-4 text-green-600 dark:text-green-400" />
-                    </div>
-                    <div>
-                      <p class="text-sm sm:text-lg font-bold text-green-700 dark:text-green-300">
-                        {{ terminatedData || 0 }}
-                      </p>
-                      <p class="text-[10px] sm:text-xs text-green-600/80 dark:text-green-400/80 font-medium">
-                        Completed
-                      </p>
-                    </div>
-                  </div>
-                  <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-                </div>
-
-                <!-- Pending Jobs -->
-                <div class="group relative overflow-hidden bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950/50 dark:to-amber-900/30 border border-amber-200/50 dark:border-amber-800/50 rounded-lg p-2 sm:p-3 transition-all duration-200 hover:shadow-md hover:scale-105">
-                  <div class="flex flex-col items-center text-center space-y-1">
-                    <div class="p-1.5 bg-amber-500/10 rounded-md">
-                      <Clock class="h-3 w-3 sm:h-4 sm:w-4 text-amber-600 dark:text-amber-400" />
-                    </div>
-                    <div>
-                      <p class="text-sm sm:text-lg font-bold text-amber-700 dark:text-amber-300">
-                        {{ pendingData || 0 }}
-                      </p>
-                      <p class="text-[10px] sm:text-xs text-amber-600/80 dark:text-amber-400/80 font-medium">
-                        Pending
-                      </p>
-                    </div>
-                  </div>
-                  <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-                </div>
-
-                <!-- Running Jobs -->
-                <div class="group relative overflow-hidden bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/30 border border-blue-200/50 dark:border-blue-800/50 rounded-lg p-2 sm:p-3 transition-all duration-200 hover:shadow-md hover:scale-105">
-                  <div class="flex flex-col items-center text-center space-y-1">
-                    <div class="p-1.5 bg-blue-500/10 rounded-md">
-                      <Archive class="h-3 w-3 sm:h-4 sm:w-4 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div>
-                      <p class="text-sm sm:text-lg font-bold text-blue-700 dark:text-blue-300">
-                        {{ runningData || 0 }}
-                      </p>
-                      <p class="text-[10px] sm:text-xs text-blue-600/80 dark:text-blue-400/80 font-medium">
-                        Running
-                      </p>
-                    </div>
-                  </div>
-                  <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-                </div>
-              </div>
-            </div>
+     <section class="bg-gradient-to-r from-sidebar to-sidebar/95 backdrop-blur-sm border-b border-border/50 shadow-sm mb-6">
+  <div class="px-4 sm:px-6 lg:px-8 py-4">
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      <!-- Page Title Section -->
+      <div class="page-title space-y-1">
+        <div class="flex items-center gap-3">
+          <div class="p-2 bg-primary/10 rounded-lg">
+            <Globe class="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h1 class="text-xl sm:text-2xl font-bold text-sidebar-foreground tracking-tight">
+              New Archive
+            </h1>
+            <p class="text-xs sm:text-sm text-sidebar-foreground/70">
+              Create a new web archive job with advanced configuration
+            </p>
           </div>
         </div>
-      </section>
-
-      <!-- Loading State for Edit Mode -->
-      <div v-if="isEditMode && crawlDefPending" class="px-4 sm:px-6 lg:px-8 mb-6">
-        <Card>
-          <CardContent class="p-8">
-            <div class="flex items-center justify-center space-x-2">
-              <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-              <p class="text-muted-foreground">Loading job configuration...</p>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
-      <!-- Error State for Edit Mode -->
-      <div v-if="isEditMode && crawlDefError" class="px-4 sm:px-6 lg:px-8 mb-6">
-        <div class="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
-          <div class="flex items-center gap-2 text-destructive">
-            <AlertCircle class="h-5 w-5" />
-            <p class="font-medium">Error loading job configuration</p>
+      <!-- Stats Cards Section -->
+      <div class="jobs-data">
+        <div class="grid grid-cols-3 gap-2 sm:gap-3">
+          <!-- Terminated Jobs -->
+          <div class="group relative overflow-hidden bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/50 dark:to-green-900/30 border border-green-200/50 dark:border-green-800/50 rounded-lg p-2 sm:p-3 transition-all duration-200 hover:shadow-md hover:scale-105">
+            <div class="flex flex-col items-center text-center space-y-1">
+              <div class="p-1.5 bg-green-500/10 rounded-md">
+                <CircleCheckBig class="h-3 w-3 sm:h-4 sm:w-4 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <p class="text-sm sm:text-lg font-bold text-green-700 dark:text-green-300">
+                  {{ terminatedData || 0 }}
+                </p>
+                <p class="text-[10px] sm:text-xs text-green-600/80 dark:text-green-400/80 font-medium">
+                  Completed
+                </p>
+              </div>
+            </div>
+            <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
           </div>
-          <p class="text-sm text-destructive/80 mt-1">{{ crawlDefError?.message || 'Failed to load job data' }}</p>
-          <Button @click="refreshCrawlDef" variant="outline" size="sm" class="mt-3">
-            <RefreshCw class="h-4 w-4 mr-2" />
-            Retry
-          </Button>
+
+          <!-- Pending Jobs -->
+          <div class="group relative overflow-hidden bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950/50 dark:to-amber-900/30 border border-amber-200/50 dark:border-amber-800/50 rounded-lg p-2 sm:p-3 transition-all duration-200 hover:shadow-md hover:scale-105">
+            <div class="flex flex-col items-center text-center space-y-1">
+              <div class="p-1.5 bg-amber-500/10 rounded-md">
+                <Clock class="h-3 w-3 sm:h-4 sm:w-4 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <p class="text-sm sm:text-lg font-bold text-amber-700 dark:text-amber-300">
+                  {{ pendingData || 0 }}
+                </p>
+                <p class="text-[10px] sm:text-xs text-amber-600/80 dark:text-amber-400/80 font-medium">
+                  Pending
+                </p>
+              </div>
+            </div>
+            <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+          </div>
+
+          <!-- Running Jobs -->
+          <div class="group relative overflow-hidden bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/30 border border-blue-200/50 dark:border-blue-800/50 rounded-lg p-2 sm:p-3 transition-all duration-200 hover:shadow-md hover:scale-105">
+            <div class="flex flex-col items-center text-center space-y-1">
+              <div class="p-1.5 bg-blue-500/10 rounded-md">
+                <Archive class="h-3 w-3 sm:h-4 sm:w-4 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <p class="text-sm sm:text-lg font-bold text-blue-700 dark:text-blue-300">
+                  {{ runningData || 0 }}
+                </p>
+                <p class="text-[10px] sm:text-xs text-blue-600/80 dark:text-blue-400/80 font-medium">
+                  Running
+                </p>
+              </div>
+            </div>
+            <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+          </div>
         </div>
       </div>
+    </div>
+  </div>
+</section>
 
       <!-- Form Section -->
-      <section class="pb-8 px-6" v-if="!isEditMode || (isEditMode && !crawlDefPending && crawlDefData)">
+      <section class="pb-8 px-6">
         <div class="max-w-7xl mx-auto">
           <Card>
             <CardHeader>
@@ -121,7 +387,7 @@
                 Archive Configuration
               </CardTitle>
               <CardDescription>
-                {{ isEditMode ? 'Edit your web archive job configuration' : 'Configure your web archive job with the settings below' }}
+                Configure your web archive job with the settings below
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -742,11 +1008,11 @@
                   >
                     <span v-if="isSubmitting" class="flex items-center gap-2">
                       <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      {{ isEditMode ? 'Saving...' : 'Creating...' }}
+                      Creating...
                     </span>
                     <span v-else class="flex items-center gap-2">
                       <Archive class="h-4 w-4" />
-                      {{ isEditMode ? 'Save Changes' : 'Create Archive' }}
+                      Create Archive
                     </span>
                   </Button>
                 </div>
@@ -758,461 +1024,6 @@
     </div>
   </TooltipProvider>
 </template>
-
-<script setup lang="ts">
-import { ref, computed, watch } from 'vue'
-import { useAuth } from '@/composables/useAuth'
-import { useAsyncData } from 'nuxt/app'
-import { navigateTo, useRoute } from 'nuxt/app'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Clock, Globe, Archive, Settings, Info, Plus, MoreHorizontal, Edit, Trash2, X, CircleCheckBig, AlertCircle, RefreshCw } from 'lucide-vue-next'
-import { toast } from 'vue-sonner'
-
-const { user, fetchUser } = useAuth()
-const route = useRoute()
-
-// Check if we're in edit mode (has ID parameter)
-const isEditMode = computed(() => !!route.query.id)
-const jobId = computed(() => route.query.id as string)
-
-// Fetch job statistics
-const { data: jobsData } = await useAsyncData(
-  'jobs',
-  () => $fetch('/api/jobs/terminated', {
-    method: "POST"
-  }),
-  {
-    server: true,
-    default: () => ({ count: { pending: 0, terminated: 0, running: 0 } })
-  }
-)
-
-// Fetch crawl definition if in edit mode
-const { data: crawlDefData, pending: crawlDefPending, error: crawlDefError, refresh: refreshCrawlDef } = await useAsyncData(
-  'crawl-def',
-  () => {
-    if (!isEditMode.value || !jobId.value) return null
-    return $fetch('/api/jobs/get_crawlDef', {
-      method: 'POST',
-      body: { uuid: jobId.value }
-    })
-  },
-  {
-    server: false,
-    default: () => null,
-    watch: [jobId]
-  }
-)
-
-const pendingData = computed(() => jobsData.value?.count?.pending || 0)
-const terminatedData = computed(() => jobsData.value?.count?.terminated || 0)
-const runningData = computed(() => jobsData.value?.count?.running || 0)
-
-// Form reactive data
-const formData = ref({
-  starting_url: '',
-  name: '',
-  agent: user.value?.name || 'aleph',
-  schedule_date: '',
-  schedule_time: '',
-  follow_robots: false,
-  more_options: false
-})
-
-// More options data
-const moreOptionsData = ref({
-  // Fine grained scoping
-  rules: [] as Array<{
-    id: number
-    url: string
-    type: string
-    scope: string
-  }>,
-  
-  // Ending conditions
-  max_urls: 12,
-  max_time: 21,
-  depth: 21,
-  
-  // Actions
-  automatic_warc_export: true,
-  proxy: false,
-  compress: false,
-  stop_after: 10,
-  agent: 'Aleph',
-  
-  // Behaviour
-  user_agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
-  max_workers: '',
-  page_load: '',
-  queue_weight: '',
-  update_existing_resources: true,
-  follow_redirects: false,
-  png_snapshots: false,
-  pdf_snapshots: false,
-  ignore_ssl_errors: true,
-  
-  // Behaviour per page
-  enable_scroll: false,
-  view_height: 400,
-  resources_pause_time: 100,
-  velocity: 0,
-  
-  // Audio/Video
-  video_transcode: false,
-  compatible_codec_brand: false,
-  
-  // Hot links
-  hot_links: '',
-  
-  // Advanced options
-  sanitizer_rules: '',
-  harmonizer_scripts: '',
-  link_discoverer: '',
-  cookies_filters: '',
-  cookies_seeds: '',
-  custom_viewport: false,
-  custom_viewport_value: '',
-  viewport_mobile: false,
-  viewport_phablet: false,
-  viewport_tablet: false,
-  viewport_desktop: false,
-  viewport_height: ''
-})
-
-const isSubmitting = ref(false)
-
-// Modal states
-const showRuleModal = ref(false)
-const showInfoModal = ref(false)
-const editingRuleIndex = ref(-1)
-
-// Rule form data
-const ruleForm = ref({
-  url: '',
-  type: 'primary',
-  scope: 'Domain'
-})
-
-// Function to populate form data from crawl definition
-const populateFormFromCrawlDef = (crawlDef: any) => {
-  if (!crawlDef?.data) return
-
-  const data = crawlDef.data
-
-  // Populate basic form data
-  formData.value.starting_url = Array.isArray(data.starting_url) 
-    ? data.starting_url.join(', ') 
-    : data.starting_url || ''
-  formData.value.name = data.archive_name || ''
-  formData.value.agent = data.agent || user.value?.name || 'aleph'
-  formData.value.follow_robots = data.robots || false
-
-  // Populate more options data
-  moreOptionsData.value.max_urls = data.max_seeds || 12
-  moreOptionsData.value.max_time = Math.floor((data.max_time || 3600000) / 60000) // Convert ms to minutes
-  moreOptionsData.value.depth = data.max_depth || 21
-  moreOptionsData.value.automatic_warc_export = data.auto_warc || true
-  moreOptionsData.value.proxy = data.enable_proxy || false
-  moreOptionsData.value.compress = data.enable_compress || false
-  moreOptionsData.value.agent = data.agent || 'Aleph'
-  moreOptionsData.value.user_agent = data.user_agent || moreOptionsData.value.user_agent
-  moreOptionsData.value.max_workers = data.max_workers?.toString() || ''
-  moreOptionsData.value.page_load = (data.page_load_tmout / 1000)?.toString() || '' // Convert ms to seconds
-  moreOptionsData.value.queue_weight = data.queue_weight?.toString() || ''
-  moreOptionsData.value.update_existing_resources = data.upresource || true
-  moreOptionsData.value.follow_redirects = data.fredirect || false
-  moreOptionsData.value.png_snapshots = data.snapshots || false
-  moreOptionsData.value.pdf_snapshots = data.pdf || false
-  moreOptionsData.value.ignore_ssl_errors = data.ignore_ssl_errors || true
-  moreOptionsData.value.enable_scroll = data.enable_scroll || false
-  moreOptionsData.value.video_transcode = data.transcode || false
-  moreOptionsData.value.compatible_codec_brand = data.compatible || false
-  moreOptionsData.value.sanitizer_rules = data.sanitizer || ''
-  moreOptionsData.value.harmonizer_scripts = data.harmonizer || ''
-
-  // Convert scopes to rules
-  if (data.scopes && Array.isArray(data.scopes)) {
-    moreOptionsData.value.rules = data.scopes.map((scope: any, index: number) => ({
-      id: Date.now() + index,
-      url: scope.url || '',
-      type: scope.type || 'primary',
-      scope: scope.scope === 'domain' ? 'Domain' : 
-             scope.scope === 'regex' ? 'Regular Expression' :
-             scope.scope === 'path' ? 'Path' : 'Page'
-    }))
-  }
-
-  // Set viewport data
-  if (data.viewport && Array.isArray(data.viewport) && data.viewport.length > 0) {
-    const viewportWidth = data.viewport[0]
-    if (viewportWidth <= 480) {
-      moreOptionsData.value.viewport_mobile = true
-    } else if (viewportWidth <= 768) {
-      moreOptionsData.value.viewport_phablet = true
-    } else if (viewportWidth <= 1024) {
-      moreOptionsData.value.viewport_tablet = true
-    } else {
-      moreOptionsData.value.viewport_desktop = true
-    }
-  }
-
-  // Show more options if we have advanced configuration
-  if (data.scopes?.length > 0 || data.sanitizer || data.harmonizer || 
-      data.max_seeds !== 1000 || data.max_depth !== 2) {
-    formData.value.more_options = true
-  }
-
-  console.log('Form populated from crawl definition:', { formData: formData.value, moreOptionsData: moreOptionsData.value })
-}
-
-// Watch for crawl definition data changes
-watch(crawlDefData, (newData) => {
-  if (newData && isEditMode.value) {
-    populateFormFromCrawlDef(newData)
-  }
-}, { immediate: true })
-
-// Add or edit rule
-const saveRule = () => {
-  if (editingRuleIndex.value >= 0) {
-    moreOptionsData.value.rules[editingRuleIndex.value] = { ...ruleForm.value, id: Date.now() }
-  } else {
-    moreOptionsData.value.rules.push({ ...ruleForm.value, id: Date.now() })
-  }
-  resetRuleForm()
-  showRuleModal.value = false
-}
-
-const editRule = (index: number) => {
-  editingRuleIndex.value = index
-  ruleForm.value = { ...moreOptionsData.value.rules[index] }
-  showRuleModal.value = true
-}
-
-const deleteRule = (index: number) => {
-  moreOptionsData.value.rules.splice(index, 1)
-}
-
-const clearAllRules = () => {
-  moreOptionsData.value.rules = []
-}
-
-const resetRuleForm = () => {
-  ruleForm.value = {
-    url: '',
-    type: 'primary',
-    scope: 'Domain'
-  }
-  editingRuleIndex.value = -1
-}
-
-const clearHotLinks = () => {
-  moreOptionsData.value.hot_links = ''
-}
-
-// Handle form submission
-const handleSubmit = async () => {
-  try {
-    isSubmitting.value = true
-    
-    if (isEditMode.value) {
-      // Edit existing job
-      const payload = {
-        uuid: jobId.value,
-        name: formData.value.name,
-        starting_url: formData.value.starting_url
-          .split(',')
-          .map(url => url.trim())
-          .filter(url => url.length > 0),
-        // Include all the existing crawl definition data with updates
-        ...crawlDefData.value?.data,
-        // Override with form values
-        agent: formData.value.agent,
-        robots: formData.value.follow_robots,
-        max_seeds: moreOptionsData.value.max_urls,
-        max_time: moreOptionsData.value.max_time * 60000, // Convert minutes to ms
-        max_depth: moreOptionsData.value.depth,
-        auto_warc: moreOptionsData.value.automatic_warc_export,
-        enable_proxy: moreOptionsData.value.proxy,
-        enable_compress: moreOptionsData.value.compress,
-        user_agent: moreOptionsData.value.user_agent,
-        max_workers: parseInt(moreOptionsData.value.max_workers) || 4,
-        page_load_tmout: parseInt(moreOptionsData.value.page_load) * 1000 || 5000, // Convert seconds to ms
-        queue_weight: parseInt(moreOptionsData.value.queue_weight) || 1,
-        upresource: moreOptionsData.value.update_existing_resources,
-        fredirect: moreOptionsData.value.follow_redirects,
-        snapshots: moreOptionsData.value.png_snapshots,
-        pdf: moreOptionsData.value.pdf_snapshots,
-        ignore_ssl_errors: moreOptionsData.value.ignore_ssl_errors,
-        enable_scroll: moreOptionsData.value.enable_scroll,
-        transcode: moreOptionsData.value.video_transcode,
-        compatible: moreOptionsData.value.compatible_codec_brand,
-        sanitizer: moreOptionsData.value.sanitizer_rules,
-        harmonizer: moreOptionsData.value.harmonizer_scripts,
-        // Convert rules back to scopes format
-        scopes: moreOptionsData.value.rules.map(rule => ({
-          type: rule.type,
-          scope: rule.scope === 'Domain' ? 'domain' :
-                 rule.scope === 'Regular Expression' ? 'regex' :
-                 rule.scope === 'Path' ? 'path' : 'page',
-          url: rule.url
-        }))
-      }
-
-      console.log('Editing job with payload:', payload)
-
-      const response = await $fetch('/api/jobs/edit_job', {
-        method: 'POST',
-        body: payload
-      })
-
-      console.log('Job edited successfully:', response)
-      toast.success('Job updated successfully!')
-      
-      // Redirect to pending page
-      await navigateTo('/pending')
-    } else {
-      // Create new job
-      const payload = {
-        agent: formData.value.agent,
-        name: formData.value.name,
-        starting_url: formData.value.starting_url
-          .split(',')
-          .map(url => url.trim())
-          .filter(url => url.length > 0)
-      }
-
-      console.log('Creating archive with payload:', payload)
-
-      const response = await $fetch('/api/jobs/create', {
-        method: 'POST',
-        body: payload
-      })
-
-      console.log('Archive created successfully:', response)
-      toast.success('Archive created successfully!')
-      
-      // Reset form after successful submission
-      formData.value = {
-        starting_url: '',
-        name: '',
-        agent: user.value?.name || 'aleph',
-        schedule_date: '',
-        schedule_time: '',
-        follow_robots: false,
-        more_options: false
-      }
-      
-      // Reset more options data
-      moreOptionsData.value = {
-        rules: [],
-        max_urls: 12,
-        max_time: 21,
-        depth: 21,
-        automatic_warc_export: true,
-        proxy: false,
-        compress: false,
-        stop_after: 10,
-        agent: 'Aleph',
-        user_agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
-        max_workers: '',
-        page_load: '',
-        queue_weight: '',
-        update_existing_resources: true,
-        follow_redirects: false,
-        png_snapshots: false,
-        pdf_snapshots: false,
-        ignore_ssl_errors: true,
-        enable_scroll: false,
-        view_height: 400,
-        resources_pause_time: 100,
-        velocity: 0,
-        video_transcode: false,
-        compatible_codec_brand: false,
-        hot_links: '',
-        sanitizer_rules: '',
-        harmonizer_scripts: '',
-        link_discoverer: '',
-        cookies_filters: '',
-        cookies_seeds: '',
-        custom_viewport: false,
-        custom_viewport_value: '',
-        viewport_mobile: false,
-        viewport_phablet: false,
-        viewport_tablet: false,
-        viewport_desktop: false,
-        viewport_height: ''
-      }
-      
-      // Redirect to completed page
-      await navigateTo('/completed')
-    }
-    
-  } catch (error: any) {
-    console.error('Error with job operation:', error)
-    
-    // Handle different types of errors with user-friendly messages using vue-sonner
-    if (error.statusCode) {
-      switch (error.statusCode) {
-        case 400:
-          toast.error('Invalid job data. Please check your input and try again.')
-          break
-        case 401:
-          toast.error('Session expired. Please log in again.')
-          await navigateTo('/login')
-          break
-        case 403:
-          toast.error('You don\'t have permission to perform this action.')
-          break
-        case 404:
-          toast.error('Job not found. It may have been deleted.')
-          break
-        case 409:
-          toast.error('A job with similar parameters already exists.')
-          break
-        case 422:
-          toast.error('Job data validation failed. Please check your input.')
-          break
-        case 429:
-          toast.error('Too many requests. Please wait before trying again.')
-          break
-        case 500:
-          toast.error('Server error occurred. Please try again later.')
-          break
-        case 503:
-          toast.error('Service is temporarily unavailable. Please try again later.')
-          break
-        default:
-          toast.error(error.statusMessage || `Failed to ${isEditMode.value ? 'update' : 'create'} job. Please try again.`)
-      }
-    } else if (error.message) {
-      toast.error(error.message)
-    } else {
-      toast.error('An unexpected error occurred. Please try again.')
-    }
-  } finally {
-    isSubmitting.value = false
-  }
-}
-
-const getCurrentDate = () => {
-  const now = new Date()
-  return now.toISOString().split('T')[0]
-}
-</script>
 
 <style scoped>
 .max-h-0 {
