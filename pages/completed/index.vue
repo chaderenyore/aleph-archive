@@ -1,108 +1,3 @@
-<!-- <script setup lang="ts">
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {watchEffect, watch, onMounted, onUnmounted } from "vue";
-
-// Fetch data using useAsyncData with auto-refresh
-const { data: terminatedJobs, pending, error, refresh } = await useAsyncData(
-  'terminated-jobs', 
-  () => $fetch('/api/jobs/terminated'),
-  {
-    server: true,
-    default: () => null
-  }
-)
-
-// Log data to console whenever it changes
-watchEffect(() => {
-  if (terminatedJobs.value) {
-    console.log('Terminated jobs data updated:', terminatedJobs.value)
-  }
-})
-
-// Set up client-side auto-refresh interval
-let refreshIntervalId: NodeJS.Timeout | null = null
-
-onMounted(() => {
-  // Set up client-side refresh every 30 seconds
-  refreshIntervalId = setInterval(async () => {
-    console.log('Client-side refresh triggered')
-    await refresh()
-  }, 30000)
-})
-
-onUnmounted(() => {
-  // Clean up interval when component is unmounted
-  if (refreshIntervalId) {
-    clearInterval(refreshIntervalId)
-  }
-})
-
-// Watch for data changes and handle errors
-watch(error, (newError) => {
-  if (newError) {
-    console.error('Error fetching terminated jobs:', newError)
-  }
-})
-
-// Watch for pending state changes
-watch(pending, (isPending) => {
-  console.log('Loading state:', isPending ? 'Loading...' : 'Loaded')
-})
-
-// Manual refresh function (you can call this from UI if needed)
-const manualRefresh = async () => {
-  console.log('Manual refresh triggered')
-  await refresh()
-}
-
-// Reactive computed property to process the data
-const processedJobs = computed(() => {
-  if (!terminatedJobs.value) return []
-  
-  // Your API returns: { count: {...}, data: [...], success: true, total: 3 }
-  // We need to extract the 'data' array and format it for the table
-  const jobsArray = terminatedJobs.value.data || []
-  
-  return jobsArray.map(job => ({
-    // Use UUID as unique identifier
-    id: job.uuid,
-    
-    // Format job name as "invoice" (or you could use uuid)
-    invoice: job.name || `JOB-${job.uuid?.slice(0, 8)}`,
-    
-    // Status based on stop_reason and other indicators
-    status: job.stop_reason === 'normal' ? 'Completed' : 
-            job.stop_reason ? job.stop_reason.toUpperCase() : 'Unknown',
-    
-    // Method could be based on template or agent
-    method: job.template === 0 ? 'Standard Template' : `Template ${job.template}`,
-    
-    // Amount could be based on data size, URLs processed, etc.
-    amount: `${job.progress?.total_done_urls || 0} URLs`,
-    
-    // Additional useful data for display
-    agent: job.agent,
-    url: job.url,
-    createdDate: new Date(job.created_date * 1000).toLocaleDateString(),
-    terminatedDate: job.terminatedDate ? new Date(job.terminatedDate * 1000).toLocaleDateString() : 'N/A',
-    totalUrls: job.progress?.total_urls || 0,
-    completedUrls: job.progress?.total_done_urls || 0,
-    dataSize: job.progress?.total_data_size ? `${(job.progress.total_data_size / 1024 / 1024).toFixed(2)} MB` : 'N/A',
-    maxDepth: job.depth?.max_depth || 0,
-    currentDepth: job.depth?.current_depth || 0,
-    runningTime: job.running_time ? new Date(job.running_time * 1000).toLocaleString() : 'N/A'
-  }))
-})
-</script> -->
-
 <template>
   <div class="container mx-auto p-6 space-y-6">
     <!-- Page Header -->
@@ -153,7 +48,7 @@ const processedJobs = computed(() => {
             </div>
             <div>
               <p class="text-sm font-medium text-muted-foreground">Pending</p>
-              <p class="text-2xl font-bold">{{ terminatedJobs?.count?.pending || 0 }}</p>
+              <p class="text-2xl font-bold">{{ pendingJobsCount }}</p>
             </div>
           </div>
         </CardContent>
@@ -382,31 +277,32 @@ const processedJobs = computed(() => {
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger as-child>
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" :disabled="downloadingJobs[job.uuid]">
                           <Download class="w-4 h-4 mr-2" />
-                          Export
+                          <Loader2 v-if="downloadingJobs[job.uuid]" class="w-4 h-4 animate-spin" />
+                          <span v-else>Export</span>
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent>
-                        <DropdownMenuItem @click="handleExport(job.uuid, 'qa')">
+                        <DropdownMenuItem @click="handleExport(job.uuid, 'qa')" :disabled="downloadingJobs[job.uuid]">
                           <FileText class="w-4 h-4 mr-2" />
-                          Download QA
+                          Download QA (.xlsx)
                         </DropdownMenuItem>
-                        <DropdownMenuItem @click="handleExport(job.uuid, 'csv')">
+                        <DropdownMenuItem @click="handleExport(job.uuid, 'csv')" :disabled="downloadingJobs[job.uuid]">
                           <FileSpreadsheet class="w-4 h-4 mr-2" />
-                          Download CSV
+                          Download CSV (.csv)
                         </DropdownMenuItem>
-                        <DropdownMenuItem @click="handleExport(job.uuid, 'spec')">
+                        <DropdownMenuItem @click="handleExport(job.uuid, 'spec')" :disabled="downloadingJobs[job.uuid]">
                           <FileCode class="w-4 h-4 mr-2" />
-                          Download SPEC
+                          Download SPEC (.spc)
                         </DropdownMenuItem>
-                        <DropdownMenuItem @click="handleExport(job.uuid, 'kdb')">
+                        <DropdownMenuItem @click="handleExport(job.uuid, 'kdb')" :disabled="downloadingJobs[job.uuid]">
                           <Database class="w-4 h-4 mr-2" />
-                          Download KDB
+                          Download KDB (.sqlite3)
                         </DropdownMenuItem>
-                        <DropdownMenuItem @click="handleExport(job.uuid, 'warc')">
+                        <DropdownMenuItem @click="handleExport(job.uuid, 'warc')" :disabled="downloadingJobs[job.uuid]">
                           <Archive class="w-4 h-4 mr-2" />
-                          Download WARC
+                          Download WARC (.ken)
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -425,8 +321,6 @@ const processedJobs = computed(() => {
                         variant="ghost"
                         size="sm"
                         @click="handleBackup(job.uuid)"
-                        :disabled="!canBackup(job.uuid)"
-                        :class="{ 'opacity-50': !canBackup(job.uuid) }"
                         title="Backup Job"
                       >
                         <HardDrive class="w-4 h-4" />
@@ -537,7 +431,7 @@ const processedJobs = computed(() => {
             </div>
             <div class="space-y-2">
               <Label>Size</Label>
-              <div class="text-sm">{{ selectedJob.progress.total_data_size }}b</div>
+              <div class="text-sm">{{ formatFileSize(selectedJob.progress.total_data_size) }}b</div>
             </div>
             <div class="space-y-2">
               <Label>Depth</Label>
@@ -607,7 +501,6 @@ const processedJobs = computed(() => {
 </template>
 
 <script lang="ts" setup>
-const nuxtApp = useNuxtApp();
 import { ref, reactive, computed, watch, watchEffect, nextTick, onBeforeMount } from 'vue'
 import { format } from 'date-fns'
 import { toast } from 'vue-sonner'
@@ -656,8 +549,8 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
+const nuxtApp = useNuxtApp();
 
-// Fetch terminated jobs data
 const { data: terminatedJobs, pending, error, refresh } = await useAsyncData(
   'terminated-jobs',
   () => $fetch('/api/jobs/terminated', {
@@ -673,11 +566,6 @@ const { data: terminatedJobs, pending, error, refresh } = await useAsyncData(
   }
 )
 
-// onBeforeMount(() => {
-//   refresh();
-// });
-
-
 // Add this function in the utility functions section
 const formatFileSize = (bytes: number) => {
   if (bytes === 0) return '0B'
@@ -688,6 +576,7 @@ const formatFileSize = (bytes: number) => {
   
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + sizes[i]
 }
+
 // Reactive state for filters
 const showFilters = ref(false)
 const filters = reactive({
@@ -719,8 +608,8 @@ const showMassDeleteDialog = ref(false)
 const selectedJob = ref<any>(null)
 const jobToDelete = ref<string>('')
 
-// Export tracking
-const exportedJobs = reactive<Record<string, string[]>>({})
+// Download tracking
+const downloadingJobs = reactive<Record<string, boolean>>({})
 
 const pageInput = ref(1)
 const refreshSuccess = ref(false)
@@ -734,6 +623,10 @@ const totalPages = computed(() => {
 const isAllSelected = computed(() => {
   if (!terminatedJobs.value?.data?.length) return false
   return terminatedJobs.value.data.every((job: any) => selectedJobs.value.includes(job.uuid))
+})
+
+const pendingJobsCount = computed(() => {
+  return terminatedJobs.value?.count?.pending || 0
 })
 
 // Build API payload based on current state
@@ -877,28 +770,79 @@ const goToPageInput = async () => {
   }
 }
 
-// Export functions
-const handleExport = async (uuid: string, type: string) => {
-  try {
-    // Track exported types for this job
-    if (!exportedJobs[uuid]) {
-      exportedJobs[uuid] = []
-    }
-    if (!exportedJobs[uuid].includes(type)) {
-      exportedJobs[uuid].push(type)
-    }
-    
-    // Here you would implement the actual export logic
-    toast.success(`${type.toUpperCase()} export started for job ${uuid.substring(0, 8)}...`)
-  } catch (error) {
-    toast.error(`Failed to export ${type.toUpperCase()}`)
-  }
+// Utility function to trigger file download
+const downloadFile = (blob: Blob, filename: string) => {
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  window.URL.revokeObjectURL(url)
 }
 
-const canBackup = (uuid: string) => {
-  const requiredExports = ['qa', 'csv', 'spec', 'kdb', 'warc']
-  const jobExports = exportedJobs[uuid] || []
-  return requiredExports.every(type => jobExports.includes(type))
+// Enhanced export function with actual download logic
+const handleExport = async (uuid: string, type: string) => {
+  try {
+    // Set loading state
+    downloadingJobs[uuid] = true
+    
+    let response: Response
+    let filename: string
+    
+    if (type === 'warc') {
+      // Use existing WARC export API
+      response = await $fetch(`/api/jobs/export?jobId=${uuid}`, { 
+        responseType: 'blob' 
+      }) as any
+      filename = `job-${uuid.substring(0, 8)}.ken`
+    } else {
+      // Use new download API for other types
+      const typeMap = {
+        qa: 'xlsx',
+        csv: 'csv',
+        spec: 'spc',
+        kdb: 'sql'
+      }
+      
+      const apiType = typeMap[type as keyof typeof typeMap]
+      response = await $fetch(`/api/download?uuid=${uuid}&type=${apiType}`, {
+        responseType: 'blob'
+      }) as any
+      
+      // Set appropriate file extension
+      const extensionMap = {
+        qa: 'xlsx',
+        csv: 'csv',
+        spec: 'spc',
+        kdb: 'sqlite3'
+      }
+      
+      const extension = extensionMap[type as keyof typeof extensionMap]
+      filename = `job-${uuid.substring(0, 8)}.${extension}`
+    }
+    
+    // Create blob and download
+    const blob = new Blob([response])
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    
+    toast.success(`${type.toUpperCase()} file downloaded successfully`)
+    
+  } catch (error: any) {
+    console.error('Download error:', error)
+    toast.error(`Failed to download ${type.toUpperCase()}: ${error.message}`)
+  } finally {
+    // Clear loading state
+    downloadingJobs[uuid] = false
+  }
 }
 
 // Action functions
@@ -908,18 +852,16 @@ const showMetrics = (job: any) => {
 }
 
 const handleBackup = async (uuid: string) => {
-  if (!canBackup(uuid)) {
-    toast.error('Please export all options first before backup')
-    return
-  }
-
   try {
     const confirmed = confirm('Are you sure you want to backup this job?')
     if (!confirmed) return
 
-    await $fetch('/api/jobs/backup', {
+    await fetch('/api/jobs/backup', {
       method: 'POST',
-      body: { uuid }
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ uuid })
     })
     
     toast.success('Job backup completed successfully')
@@ -935,12 +877,15 @@ const showDeleteDialog = (uuid: string) => {
 
 const confirmDelete = async () => {
   try {
-    await $fetch('/api/jobs/delete', {
+    await fetch('/api/jobs/delete', {
       method: 'POST',
-      body: {
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
         state: 'terminated',
         uuids: [jobToDelete.value]
-      }
+      })
     })
     
     toast.success('Job deleted successfully')
@@ -953,12 +898,15 @@ const confirmDelete = async () => {
 
 const confirmMassDelete = async () => {
   try {
-    await $fetch('/api/jobs/delete', {
+    await fetch('/api/jobs/delete', {
       method: 'POST',
-      body: {
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
         state: 'terminated',
         uuids: selectedJobs.value
-      }
+      })
     })
     
     toast.success(`${selectedJobs.value.length} job(s) deleted successfully`)
