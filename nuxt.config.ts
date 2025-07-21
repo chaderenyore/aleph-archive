@@ -10,7 +10,8 @@ export default defineNuxtConfig({
     '@nuxt/icon',
     '@pinia/nuxt',
     '@nuxtjs/color-mode',
-    'vue-sonner/nuxt'
+    'vue-sonner/nuxt',
+    'pinia-plugin-persistedstate/nuxt'
   ],
 
   css: [
