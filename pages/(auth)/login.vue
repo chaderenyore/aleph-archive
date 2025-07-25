@@ -35,8 +35,10 @@ definePageMeta({
 
 // Redirect if already authenticated
 const authStore = useAuthStore()
+const route = useRoute()
 if (authStore.isAuthenticated) {
-  navigateTo('/')
+  const redirectPath = route.query.redirect || route.fullPath || '/'
+  navigateTo(redirectPath as string)
 }
 </script>
 
