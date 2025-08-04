@@ -741,6 +741,7 @@ import {
   ChevronUp, ChevronDown, ChevronLeft, ChevronRight, AlertCircle, RefreshCw, Timer
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+const nuxtApp = useNuxtApp();
 
 // Reactive data for pending jobs
 const pendingPageSize = ref('5')
@@ -804,8 +805,12 @@ const { data: pendingJobs, pending, error, refresh } = await useAsyncData(
     body: buildRequestPayload()
   }),
   {
-    server: true,
-    default: () => null
+    server: false,
+    default: () => null,
+    getCachedData(key) {
+          return nuxtApp.payload.data[key] || nuxtApp.static.data[key]
+    },
+    lazy: true,
   }
 )
 
