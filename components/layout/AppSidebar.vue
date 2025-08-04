@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import type { NavGroup, NavLink, NavSectionTitle } from '~/types/nav'
 import { navMenu, navMenuBottom } from '~/constants/menus'
-
+const authStore = useAuthStore();
+  
+// const user = {
+//   name: authStore.user?.name,
+//   email: authStore.user?.login,
+//   // avatar: userStore.avatar,
+// }
 function resolveNavItemComponent(item: NavLink | NavGroup | NavSectionTitle): any {
   if ('children' in item)
     return resolveComponent('LayoutSidebarNavGroup')
@@ -15,19 +21,9 @@ const teams: {
   plan: string
 }[] = [
   {
-    name: 'Acme Inc',
+    name: 'Aleph Archive',
     logo: 'i-lucide-gallery-vertical-end',
     plan: 'Enterprise',
-  },
-  {
-    name: 'Acme Corp.',
-    logo: 'i-lucide-audio-waveform',
-    plan: 'Startup',
-  },
-  {
-    name: 'Evil Corp.',
-    logo: 'i-lucide-command',
-    plan: 'Free',
   },
 ]
 
@@ -36,8 +32,8 @@ const user: {
   email: string
   avatar: string
 } = {
-  name: 'Dian Pratama',
-  email: 'dianpratama2@gmail.com',
+  name: authStore.user?.name ?? 'Aleph User',
+  email: authStore.user?.login ?? 'Aleph',
   avatar: '/avatars/avatartion.png',
 }
 

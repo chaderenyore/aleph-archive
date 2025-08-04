@@ -56,14 +56,6 @@ const activeTeam = ref(props.teams[0])
             <DropdownMenuShortcut>⌘{{ index + 1 }}</DropdownMenuShortcut>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem class="gap-2 p-2">
-            <div class="size-6 flex items-center justify-center border rounded-md bg-background">
-              <Icon name="i-lucide-plus" class="size-4" />
-            </div>
-            <div class="text-muted-foreground font-medium">
-              Add team
-            </div>
-          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </SidebarMenuItem>
