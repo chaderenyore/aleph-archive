@@ -795,7 +795,8 @@ const { data: jobsData } = await useAsyncData(
   }),
   {
     server: true,
-    default: () => ({ count: { pending: 0, terminated: 0, running: 0 } })
+    default: () => ({ count: { pending: 0, terminated: 0, running: 0 } }),
+    lazy: true
   }
 )
 

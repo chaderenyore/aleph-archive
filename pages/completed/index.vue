@@ -562,7 +562,8 @@ const { data: terminatedJobs, pending, error, refresh } = await useAsyncData(
     default: () => null,
     getCachedData(key) {
       return nuxtApp.payload.data[key] || nuxtApp.static.data[key]
-    }
+    },
+    lazy: true
   }
 )
 
