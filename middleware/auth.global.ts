@@ -1,50 +1,42 @@
-// export default defineNuxtRouteMiddleware(async (to) => {
-//   const { user, checkAuth } = useAuth()
-  
-//   // Public routes that don't require auth
-//   const publicRoutes = ['/login']
-  
-//   // If user is authenticated and trying to access login page, redirect to home
-//   if (user.value && publicRoutes.includes(to.path)) {
-//     return navigateTo('/')
-//   }
-
-//   // For protected routes, check authentication (fast - no API call if user exists)
-//   if (!publicRoutes.includes(to.path)) {
-//     // Fast check - only calls API if no user data exists
-//     const isAuthenticated = await checkAuth()
-    
-//     if (!isAuthenticated) {
-//       return navigateTo('/login')
-//     }
-//   }
-// })
-
-
+// middleware/auth.global.ts
 export default defineNuxtRouteMiddleware(async (to) => {
-  // Skip middleware on server-side rendering
-  if (import.meta.client) return;
+  // Skip middleware during SSR to prevent hydration mismatches
+  if (import.meta.server) return
 
   const authStore = useAuthStore()
 
   // Public routes that don't require authentication
-  const publicRoutes = ["/login"]
+  const publicRoutes = ["/login", "/forgot-password"]
   const isPublicRoute = publicRoutes.includes(to.path)
 
-  // Wait for auth initialization if not already done
-  if (!authStore.isInitialized) {
-    await authStore.initializeAuth()
-  }
+  // For client-side navigation, check if we have persisted user data first
+  if (import.meta.client) {
+    // If we have persisted user data and going to public route, redirect immediately
+    if (authStore.user && isPublicRoute) {
+      const redirectTo = to.query.redirect as string
+      return navigateTo(redirectTo || "/")
+    }
 
-  // If user is authenticated and trying to access login page, redirect to home
-  if (authStore.isAuthenticated && isPublicRoute) {
-    return navigateTo("/")
-  }
+    // If no persisted user data and going to protected route, we need to initialize
+    if (!authStore.user && !isPublicRoute) {
+      // Initialize auth to check server session
+      if (!authStore.isInitialized) {
+        await authStore.initializeAuth()
+      }
 
-  // If user is not authenticated and trying to access protected route
-  if (!authStore.isAuthenticated && !isPublicRoute) {
-    // Save the intended destination
-    const redirectQuery = to.path !== "/" ? `?redirect=${encodeURIComponent(to.fullPath)}` : ""
-    return navigateTo(`/login${redirectQuery}`)
+      // After initialization, if still not authenticated, redirect to login
+      if (!authStore.isAuthenticated) {
+        const redirectQuery = to.path !== "/" ? `?redirect=${encodeURIComponent(to.fullPath)}` : ""
+        return navigateTo(`/login${redirectQuery}`)
+      }
+    }
+
+    // If we have persisted user but haven't initialized server state yet, do it in background
+    if (authStore.user && !authStore.isInitialized) {
+      // Don't await this - let the user navigate and validate in background
+      authStore.initializeAuth().catch(() => {
+        // If background validation fails, user will be redirected by the store
+      })
+    }
   }
 })
