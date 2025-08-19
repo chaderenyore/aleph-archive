@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useSidebar } from '~/components/ui/sidebar'
-
+const auth = useAuthStore();
 defineProps<{
   user: {
     name: string
@@ -12,7 +12,14 @@ defineProps<{
 const { isMobile, setOpenMobile } = useSidebar()
 
 function handleLogout() {
-  navigateTo('/login')
+  auth.logout();
+}
+
+function changePassword() {
+  // Logic to change password
+  // This could involve redirecting to a change password page or opening a modal
+  console.log('Change Password clicked');
+
 }
 
 const showModalTheme = ref(false)
@@ -64,6 +71,10 @@ const showModalTheme = ref(false)
           <DropdownMenuItem @click="handleLogout">
             <Icon name="i-lucide-log-out" />
             Log out
+          </DropdownMenuItem>
+          <DropdownMenuItem @click="handleLogout">
+            <Icon name="i-lucide-lock-keyhole-open" />
+            Change Password
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

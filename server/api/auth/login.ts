@@ -68,7 +68,7 @@ export default defineEventHandler(async (event) => {
 
   } catch (error: any) {
     console.error('Login API Error:', error)
-    
+   
     throw createError({
       statusCode: error.response?.status || 500,
       statusMessage: error.response?.statusText || 'Authentication failed'

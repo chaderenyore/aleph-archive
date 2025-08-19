@@ -1,5 +1,6 @@
 export default defineEventHandler(async (event) => {
   try {
+    const body = await readBody(event)
     const baseUrl = process.env.NUXT_PUBLIC_API_URL?.replace(/\/$/, '')
     const sidCookie = getCookie(event, 'sid')
     
@@ -11,6 +12,7 @@ export default defineEventHandler(async (event) => {
           'Cookie': `sid=${sidCookie}`
         },
         timeout: 10000,
+        body,
         ignoreHTTPSErrors: true,
       })
     }
