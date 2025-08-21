@@ -1,25 +1,18 @@
-![nuxt-shadcn-dashboard-social-card](https://nuxt-shadcn-dashboard.vercel.app/social-card.png)
+### Development
+- `npm run dev` - Start the development server with hot reload
+- `npm run typecheck` - Run TypeScript type checking without emitting files
 
-# Nuxt Shadcn UnoCSS - Dashboard
+### Production Build
+- `npm run build` - Build the application for production
+- `npm run preview` - Preview the production build locally
+- `npm run generate` - Generate static files (SSG)
 
-[![built with nuxt][nuxt-src]][nuxt-href]
+### Code Quality
+- `npm run lint` - Check code for linting errors
+- `npm run format` - Fix linting errors automatically
 
-- [Live demo](https://nuxt-shadcn-dashboard.vercel.app)
-- [Component Documentation](https://shadcn-vue.com/docs/introduction)
-
-## Quick Start
-
-```bash [Terminal]
-npx degit dianprata/nuxt-shadcn-dashboard my-dashboard-app
-cd my-dashboard-app
-pnpm i # If you don't have pnpm installed, run: npm install -g pnpm
-```
-
-## Contributing
-
-1. Clone this repository.
-2. Install dependencies `pnpm install`.
-3. Use `pnpm run dev` to start dev server.
+### Deployment
+After building, the application will be ready for deployment. The build artifacts will be in the `.output` directory.
 
 ## Credits
 
